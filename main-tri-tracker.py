@@ -193,6 +193,7 @@ metric_select.on_change('value', update_plot)
 div0 = Div(text = """<b>TRI Tariff</b>: Trade Restrictiveness Index.<br>
     <b>Weighted Mean</b>: 2024 Import-weighted average tariff.<br>
     <b>Duty / Imports</b>: Total duties divided by total imports.<br>
+    <b>Statutory Tariff</b>: Announced tariffs, 2024 Import-weighted.<br>    
     <b>Total Duties</b>: Total customs duties collected in USD.\n
     """, width=350, background = background, styles={"justify-content": "space-between", "display": "flex"} )
 
