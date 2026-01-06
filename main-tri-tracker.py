@@ -234,10 +234,10 @@ div0 = Div(text = """<b>TRI Tariff</b>: Trade Restrictiveness Index.<br>
     <b>Weighted Mean</b>: 2024 Import-weighted average tariff.<br>
     <b>Duty / Imports</b>: Total duties divided by total imports.<br>
     <b>Total Duties</b>: Total customs duties collected in USD.\n
-    """, width=350, background = background, style={"justify-content": "space-between", "display": "flex"} )
+    """, width=350, background = background, styles={"justify-content": "space-between", "display": "flex"} )
 
 div1 = Div(text = """Select one or more countries to compare. Data covers top 20 U.S. trading partners plus ALL COUNTRIES aggregate.\n
-    """, width=350, background = background, style={"justify-content": "space-between", "display": "flex"} )
+    """, width=350, background = background, styles={"justify-content": "space-between", "display": "flex"} )
 
 # div2 = Div(text = """<b>Shaded regions:</b> Blue = COVID (Feb-Apr 2020), Red = Trade policy periods.<br>
 #     Data source: U.S. Census Bureau trade data.\n
