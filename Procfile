@@ -1,0 +1,1 @@
+web: bokeh serve --port=$PORT --allow-websocket-origin=TRI-tracker.herokuapp.com --address=0.0.0.0 --use-xheaders main-tri-tracker.py
