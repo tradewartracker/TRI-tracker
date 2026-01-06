@@ -10,7 +10,7 @@ import pyarrow.parquet as pq
 
 from bokeh.io import curdoc
 from bokeh.layouts import column, gridplot, row
-from bokeh.models import ColumnDataSource, DataRange1d, Select, HoverTool, Panel, Tabs, LinearColorMapper, Range1d, MultiChoice
+from bokeh.models import ColumnDataSource, DataRange1d, Select, HoverTool, LinearColorMapper, Range1d, MultiChoice
 from bokeh.models import NumeralTickFormatter, Title, Label, Paragraph, Div, CustomJSHover, BoxAnnotation
 from bokeh.models import ColorBar
 from bokeh.palettes import brewer, Spectral6, Category10, Category20
