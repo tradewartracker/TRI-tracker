@@ -1,22 +1,13 @@
 import datetime as dt
-from os.path import dirname, join
-
-import numpy as np
 
 import pandas as pd
-
-import pyarrow as pa
 import pyarrow.parquet as pq
 
 from bokeh.io import curdoc
-from bokeh.layouts import column, gridplot, row
-from bokeh.models import ColumnDataSource, DataRange1d, Select, HoverTool, LinearColorMapper, Range1d, MultiChoice
-from bokeh.models import NumeralTickFormatter, Title, Label, Paragraph, Div, CustomJSHover, BoxAnnotation
-from bokeh.models import ColorBar
-from bokeh.palettes import brewer, Spectral6, Category10, Category20
+from bokeh.layouts import column, row
+from bokeh.models import ColumnDataSource, Select, HoverTool, MultiChoice
+from bokeh.models import NumeralTickFormatter, Div, BoxAnnotation
 from bokeh.plotting import figure
-from bokeh.embed import server_document
-from bokeh.transform import factor_cmap
 
 #################################################################################
 # This just loads in the data...
@@ -75,41 +66,18 @@ def make_plot():
         
     title = metric_select.value + " for " + title_name.rstrip(", ")
 
-    plot = figure(x_axis_type="datetime", plot_height = height, plot_width=width, toolbar_location = 'below',
+    plot = figure(x_axis_type="datetime", height=height, width=width, toolbar_location = 'below',
            tools = "box_zoom, reset, pan, xwheel_zoom", title = title,
                   x_range = (dt.datetime(2024,9,1),dt.datetime(final_year,final_month,1)) )
-
-    numlines = len(country_select.value)
     
     # Get fixed colors from the dataframe for each selected country
     line_colors = []
     line_widths = []
     
     for country_name in country_select.value:
-        # Get the fixed color for this country from the dataframe
         country_color = df.loc[country_name].iloc[0]['color']
         line_colors.append(country_color)
-
         line_widths.append(6)
-        
-        # # Emphasize "ALL COUNTRIES" with thicker line
-        # if country_name == "ALL COUNTRIES":
-        #     line_widths.append(7)
-        # else:
-        #     line_widths.append(7)
-    
-    # Prepare data for multi-line plot
-    xs_data = []
-    ys_data = []
-    labels = []
-    
-    for country_name in country_select.value:
-        country_data = df.loc[country_name].sort_index()
-        xs_data.append(country_data.index.to_numpy())
-        # Convert to percentage for tariff rates, keep as-is for dollar amounts
-        y_values = country_data[metric_column].values if is_dollar_metric else 100 * country_data[metric_column].values
-        ys_data.append(y_values)
-        labels.append(country_name)
     
     # Plot each country as a separate line for legend support
     for i, country_name in enumerate(country_select.value):
@@ -178,16 +146,8 @@ def make_plot():
     plot.background_fill_alpha = 0.75
     plot.border_fill_color = background 
     
-    # # Add shaded regions for key periods
-    # covid_box = BoxAnnotation(left=dt.datetime(2020,2,1), right=dt.datetime(2020,4,30), fill_color='blue', fill_alpha=0.1)
-    # plot.add_layout(covid_box)
-
     trump2_box = BoxAnnotation(left=dt.datetime(2025,4,2), right=dt.datetime(final_year,final_month,1), fill_color='red', fill_alpha=0.1)
     plot.add_layout(trump2_box)
-    
-    # if "CHINA" in country_select.value:
-    #     tradewar_box = BoxAnnotation(left=dt.datetime(2018,7,1), right=dt.datetime(2019,10,11), fill_color='red', fill_alpha=0.1)
-    #     plot.add_layout(tradewar_box)
     
     # Make tick labels bold and larger
     plot.xaxis.major_label_text_font_style = "bold"
@@ -238,10 +198,6 @@ div0 = Div(text = """<b>TRI Tariff</b>: Trade Restrictiveness Index.<br>
 
 div1 = Div(text = """Select one or more countries to compare. Data covers top 20 U.S. trading partners plus ALL COUNTRIES aggregate.\n
     """, width=350, background = background, styles={"justify-content": "space-between", "display": "flex"} )
-
-# div2 = Div(text = """<b>Shaded regions:</b> Blue = COVID (Feb-Apr 2020), Red = Trade policy periods.<br>
-#     Data source: U.S. Census Bureau trade data.\n
-#     """, width=350, background = background, style={"justify-content": "space-between", "display": "flex"} )
 
 controls = column(country_select, div1, metric_select, div0)
 
