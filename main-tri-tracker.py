@@ -195,13 +195,16 @@ def download_csv():
     for country_name in country_select.value:
         country_data = df.loc[country_name].sort_index()
         for idx, row in country_data.iterrows():
-            value = row[metric_column] if is_dollar_metric else row[metric_column] * 100
-            data_list.append({
-                'Country': country_name,
-                'Date': idx.strftime('%Y-%m-%d'),
-                'Metric': metric_select.value,
-                'Value': value
-            })
+            value = row[metric_column]
+            # Skip rows where the metric value is NaN or missing
+            if pd.notna(value):
+                display_value = value if is_dollar_metric else value * 100
+                data_list.append({
+                    'Country': country_name,
+                    'Date': idx.strftime('%Y-%m-%d'),
+                    'Metric': metric_select.value,
+                    'Value': display_value
+                })
     
     # Create DataFrame and export to CSV
     export_df = pd.DataFrame(data_list)
