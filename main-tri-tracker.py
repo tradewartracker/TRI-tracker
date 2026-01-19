@@ -210,21 +210,8 @@ def download_csv():
     # Encode to base64 for download
     b64 = base64.b64encode(csv_string.encode()).decode()
     
-    # Create download link using JavaScript
-    js_code = f"""
-    var csv = atob('{b64}');
-    var blob = new Blob([csv], {{type: 'text/csv'}});
-    var url = window.URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'tariff_data.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-    """
-    
-    curdoc().add_next_tick_callback(lambda: curdoc().session_context.session.run_js_code(js_code) if curdoc().session_context else None)
+    # Update the download source which triggers the CustomJS callback
+    csv_source.data = {'csv': [b64]}
 
 #################################################################################
 
@@ -243,6 +230,29 @@ metric_select = Select(value=metric, title='Tariff Metric', options=['TRI Tariff
 metric_select.on_change('value', update_plot)
 
 #################################################################################
+
+# Create a ColumnDataSource for CSV download
+csv_source = ColumnDataSource(data={'csv': ['']})
+
+# CustomJS callback to trigger download
+download_callback = CustomJS(args=dict(source=csv_source), code="""
+var csv_b64 = source.data['csv'][0];
+if (csv_b64) {
+    var csv = atob(csv_b64);
+    var blob = new Blob([csv], {type: 'text/csv'});
+    var url = window.URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'tariff_data.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+}
+""")
+
+# Attach the callback to the data source
+csv_source.js_on_change('data', download_callback)
 
 # Download CSV button
 download_button = Button(label="Download Data (CSV)", button_type="success", width=350)
