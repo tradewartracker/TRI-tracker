@@ -6,8 +6,11 @@ import pyarrow.parquet as pq
 from bokeh.io import curdoc
 from bokeh.layouts import column, row
 from bokeh.models import ColumnDataSource, Select, HoverTool, MultiChoice
-from bokeh.models import NumeralTickFormatter, Div, BoxAnnotation
+from bokeh.models import NumeralTickFormatter, Div, BoxAnnotation, Button
+from bokeh.models import CustomJS
 from bokeh.plotting import figure
+import io
+import base64
 
 #################################################################################
 # This just loads in the data...
@@ -67,7 +70,7 @@ def make_plot():
     title = metric_select.value + " for " + title_name.rstrip(", ")
 
     plot = figure(x_axis_type="datetime", height=height, width=width, toolbar_location = 'below',
-           tools = "box_zoom, reset, pan, xwheel_zoom", title = title,
+           tools = "box_zoom, reset, pan, xwheel_zoom, save", title = title,
                   x_range = (dt.datetime(2024,9,1),dt.datetime(final_year,final_month,1)) )
     
     # Get fixed colors from the dataframe for each selected country
@@ -174,6 +177,57 @@ def make_plot():
 
 #################################################################################
 
+def download_csv():
+    """Generate CSV data for currently selected countries and metric"""
+    metric_map = {
+        'TRI Tariff': 'sqrtariff',
+        'Weighted Mean Tariff': 'meanweighted',
+        'Duty / Imports Tariff': 'simplemean',
+        'Statutory Tariff': 'effective tariff',
+        'Total Duties': 'duty_total'
+    }
+    
+    metric_column = metric_map[metric_select.value]
+    is_dollar_metric = (metric_select.value == 'Total Duties')
+    
+    # Collect data for all selected countries
+    data_list = []
+    for country_name in country_select.value:
+        country_data = df.loc[country_name].sort_index()
+        for idx, row in country_data.iterrows():
+            value = row[metric_column] if is_dollar_metric else row[metric_column] * 100
+            data_list.append({
+                'Country': country_name,
+                'Date': idx.strftime('%Y-%m-%d'),
+                'Metric': metric_select.value,
+                'Value': value
+            })
+    
+    # Create DataFrame and export to CSV
+    export_df = pd.DataFrame(data_list)
+    csv_string = export_df.to_csv(index=False)
+    
+    # Encode to base64 for download
+    b64 = base64.b64encode(csv_string.encode()).decode()
+    
+    # Create download link using JavaScript
+    js_code = f"""
+    var csv = atob('{b64}');
+    var blob = new Blob([csv], {{type: 'text/csv'}});
+    var url = window.URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'tariff_data.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    """
+    
+    curdoc().add_next_tick_callback(lambda: curdoc().session_context.session.run_js_code(js_code) if curdoc().session_context else None)
+
+#################################################################################
+
 def update_plot(attrname, old, new):
     layout.children[0] = make_plot()
 
@@ -190,6 +244,12 @@ metric_select.on_change('value', update_plot)
 
 #################################################################################
 
+# Download CSV button
+download_button = Button(label="Download Data (CSV)", button_type="success", width=350)
+download_button.on_click(download_csv)
+
+#################################################################################
+
 div0 = Div(text = """<b>TRI Tariff</b>: Trade Restrictiveness Index.<br>
     <b>Weighted Mean</b>: 2024 Import-weighted average tariff.<br>
     <b>Duty / Imports</b>: Total duties divided by total imports.<br>
@@ -200,7 +260,11 @@ div0 = Div(text = """<b>TRI Tariff</b>: Trade Restrictiveness Index.<br>
 div1 = Div(text = """Select one or more countries to compare. Data covers top 20 U.S. trading partners plus ALL COUNTRIES aggregate.\n
     """, width=350, background = background, styles={"justify-content": "space-between", "display": "flex"} )
 
-controls = column(country_select, div1, metric_select, div0)
+div2 = Div(text = """<b>Download Chart:</b> Use the save icon (💾) in the chart toolbar to download as PNG.<br>
+    <b>Download Data:</b> Click the button below to export selected data as CSV.\n
+    """, width=350, background = background, styles={"justify-content": "space-between", "display": "flex"} )
+
+controls = column(country_select, div1, metric_select, div0, download_button, div2)
 
 height = int(1.95*533)
 width = int(1.95*675)
