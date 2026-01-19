@@ -207,11 +207,18 @@ def download_csv():
     export_df = pd.DataFrame(data_list)
     csv_string = export_df.to_csv(index=False)
     
-    # Encode to base64 for download
+    # Create data URI for download link
     b64 = base64.b64encode(csv_string.encode()).decode()
+    data_uri = f"data:text/csv;base64,{b64}"
     
-    # Update the download source which triggers the CustomJS callback
-    csv_source.data = {'csv': [b64]}
+    # Update the download link div
+    download_link_div.text = f'''
+    <a href="{data_uri}" download="tariff_data.csv" 
+       style="display:inline-block; padding:10px 20px; background-color:#28a745; 
+              color:white; text-decoration:none; border-radius:4px; font-weight:bold;">
+       Click Here to Download CSV
+    </a>
+    '''
 
 #################################################################################
 
@@ -231,32 +238,11 @@ metric_select.on_change('value', update_plot)
 
 #################################################################################
 
-# Create a ColumnDataSource for CSV download
-csv_source = ColumnDataSource(data={'csv': ['']})
-
-# CustomJS callback to trigger download
-download_callback = CustomJS(args=dict(source=csv_source), code="""
-var csv_b64 = source.data['csv'][0];
-if (csv_b64) {
-    var csv = atob(csv_b64);
-    var blob = new Blob([csv], {type: 'text/csv'});
-    var url = window.URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'tariff_data.csv';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-}
-""")
-
-# Attach the callback to the data source
-csv_source.js_on_change('data', download_callback)
-
-# Download CSV button
-download_button = Button(label="Download Data (CSV)", button_type="success", width=350)
+# Download CSV button and link
+download_button = Button(label="Generate CSV Download Link", button_type="success", width=350)
 download_button.on_click(download_csv)
+
+download_link_div = Div(text="", width=350, height=50)
 
 #################################################################################
 
@@ -271,10 +257,10 @@ div1 = Div(text = """Select one or more countries to compare. Data covers top 20
     """, width=350, background = background, styles={"justify-content": "space-between", "display": "flex"} )
 
 div2 = Div(text = """<b>Download Chart:</b> Use the save icon (💾) in the chart toolbar to download as PNG.<br>
-    <b>Download Data:</b> Click the button below to export selected data as CSV.\n
+    <b>Download Data:</b> Click the button to generate a download link for CSV data.\n
     """, width=350, background = background, styles={"justify-content": "space-between", "display": "flex"} )
 
-controls = column(country_select, div1, metric_select, div0, download_button, div2)
+controls = column(country_select, div1, metric_select, div0, download_button, download_link_div, div2)
 
 height = int(1.95*533)
 width = int(1.95*675)
