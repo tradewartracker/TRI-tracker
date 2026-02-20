@@ -17,7 +17,7 @@ import base64
 # Alot of this was built off this "cross-fire demo"
 # https://github.com/bokeh/bokeh/blob/branch-2.3/examples/app/crossfilter/main.py
 
-final_month = 3
+final_month = 5
 final_year = 2026
 
 background = "#ffffff"
@@ -33,7 +33,7 @@ country_options = df.index.get_level_values('CTY_NAME').unique().to_list()
 
 # Default selections
 country = ["ALL COUNTRIES", "CANADA"]
-metric = "TRI Tariff"
+metric = "Statutory Tariff"
 
 #################################################################################
 # No functions needed for TRI data - it's already calculated
