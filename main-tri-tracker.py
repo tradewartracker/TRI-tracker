@@ -33,7 +33,7 @@ country_options = df.index.get_level_values('CTY_NAME').unique().to_list()
 
 # Default selections
 country = ["ALL COUNTRIES"]
-metric = "TRI Tariff"
+metric = "Statutory Tariff"
 
 #################################################################################
 # No functions needed for TRI data - it's already calculated
