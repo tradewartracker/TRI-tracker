@@ -32,7 +32,7 @@ df.set_index(['CTY_NAME', 'date'], inplace=True)
 country_options = df.index.get_level_values('CTY_NAME').unique().to_list()
 
 # Default selections
-country = ["ALL COUNTRIES", "CHINA"]
+country = ["ALL COUNTRIES"]
 metric = "Statutory Tariff"
 
 #################################################################################
