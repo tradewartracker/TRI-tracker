@@ -20,6 +20,9 @@ import base64
 final_month = 5
 final_year = 2026
 
+first_year = 2024
+first_month = 11
+
 background = "#ffffff"
 
 file = "./data"+ "/tri-all-country-data.parquet"
@@ -71,7 +74,7 @@ def make_plot():
 
     plot = figure(x_axis_type="datetime", height=height, width=width, toolbar_location = 'below',
            tools = "box_zoom, reset, pan, xwheel_zoom, save", title = title,
-                  x_range = (dt.datetime(2024,9,1),dt.datetime(final_year,final_month,1)) )
+                  x_range = (dt.datetime(first_year,first_month,1),dt.datetime(final_year,final_month,1)) )
     
     # Get fixed colors from the dataframe for each selected country
     line_colors = []
