@@ -5,7 +5,7 @@ import pyarrow.parquet as pq
 
 from bokeh.io import curdoc
 from bokeh.layouts import column, row
-from bokeh.models import ColumnDataSource, Select, HoverTool, MultiChoice
+from bokeh.models import ColumnDataSource, HoverTool, MultiChoice
 from bokeh.models import NumeralTickFormatter, Div, BoxAnnotation, Button
 from bokeh.models import CustomJS
 from bokeh.plotting import figure
@@ -36,7 +36,7 @@ country_options = df.index.get_level_values('CTY_NAME').unique().to_list()
 
 # Default selections
 country = ["ALL COUNTRIES"]
-metric = "Statutory Tariff"
+metric = ["Statutory Tariff"]
 
 #################################################################################
 # No functions needed for TRI data - it's already calculated
@@ -50,164 +50,149 @@ def make_plot():
     height = int(1.15*533)
     width = int(1.15*750)
     
-    # Map metric selection to column name
     metric_map = {
         'TRI Tariff': 'sqrtariff',
         'Weighted Mean Tariff': 'meanweighted',
         'Duty / Imports Tariff': 'simplemean',
         'Statutory Tariff': 'effective tariff',
-        'Total Duties': 'duty_total'
     }
-    
-    metric_column = metric_map[metric_select.value]
-    is_dollar_metric = (metric_select.value == 'Total Duties')
-    
-    # Build title
-    title_name = ""
-    for name in country_select.value:
-        if len(country_select.value) <= 2:
-            title_name = title_name + name + ", "
-        if len(country_select.value) > 2:
-            title_name = title_name + name[0:3] + ", "
-        
-    title = metric_select.value + " for " + title_name.rstrip(", ")
 
-    plot = figure(x_axis_type="datetime", height=height, width=width, toolbar_location = 'below',
-           tools = "box_zoom, reset, pan, xwheel_zoom, save", title = title,
-                  x_range = (dt.datetime(first_year,first_month,1),dt.datetime(final_year,final_month,1)) )
-    
-    # Get fixed colors from the dataframe for each selected country
-    line_colors = []
-    line_widths = []
-    
-    for country_name in country_select.value:
-        country_color = df.loc[country_name].iloc[0]['color']
-        line_colors.append(country_color)
-        line_widths.append(6)
-    
-    # Plot each country as a separate line for legend support
-    for i, country_name in enumerate(country_select.value):
-        country_data = df.loc[country_name].sort_index()
-        
-        # Convert to percentage for tariff rates, keep as-is for dollar amounts
-        y_values = country_data[metric_column].values if is_dollar_metric else 100 * country_data[metric_column].values
-        
-        # Create ColumnDataSource with flag URL
-        source = ColumnDataSource(data=dict(
-            x=country_data.index,
-            y=y_values,
-            country=[country_name] * len(country_data),
-            flag=[country_data['flag'].iloc[0]] * len(country_data)
-        ))
-        
-        plot.line('x', 'y', source=source,
-                 line_width=line_widths[i], line_alpha=0.75, line_color=line_colors[i],
-                 legend_label=country_name, name=country_name)
-        
+    dash_styles = ['solid', [12, 4], [4, 4], [10, 4, 2, 4]]
+
+    selected_metrics = metric_select.value
+    selected_countries = country_select.value
+
+    # Guard against empty selections
+    if not selected_metrics or not selected_countries:
+        plot = figure(x_axis_type="datetime", height=height, width=width, toolbar_location='below',
+                      tools="box_zoom, reset, pan, xwheel_zoom, save", title="No data selected",
+                      x_range=(dt.datetime(first_year, first_month, 1), dt.datetime(final_year, final_month, 1)))
+        plot.sizing_mode = "scale_both"
+        plot.max_height = height
+        plot.max_width = width
+        plot.min_height = int(0.25*height)
+        plot.min_width = int(0.25*width)
+        return plot
+
+    # Build title
+    metric_str = ", ".join(selected_metrics)
+    title_name = ""
+    for name in selected_countries:
+        if len(selected_countries) <= 2:
+            title_name = title_name + name + ", "
+        else:
+            title_name = title_name + name[0:3] + ", "
+    title = metric_str + " for " + title_name.rstrip(", ")
+
+    plot = figure(x_axis_type="datetime", height=height, width=width, toolbar_location='below',
+                  tools="box_zoom, reset, pan, xwheel_zoom, save", title=title,
+                  x_range=(dt.datetime(first_year, first_month, 1), dt.datetime(final_year, final_month, 1)))
+
+    # Nested loop: each metric x each country = one line
+    for j, metric_name in enumerate(selected_metrics):
+        metric_column = metric_map[metric_name]
+        dash = dash_styles[j % len(dash_styles)]
+
+        for country_name in selected_countries:
+            country_color = df.loc[country_name].iloc[0]['color']
+            country_data = df.loc[country_name].sort_index()
+            y_values = 100 * country_data[metric_column].values
+
+            label = f"{country_name} \u2013 {metric_name}" if len(selected_metrics) > 1 else country_name
+
+            source = ColumnDataSource(data=dict(
+                x=country_data.index,
+                y=y_values,
+                country=[country_name] * len(country_data),
+                metric=[metric_name] * len(country_data),
+                flag=[country_data['flag'].iloc[0]] * len(country_data)
+            ))
+
+            plot.line('x', 'y', source=source,
+                      line_width=6, line_alpha=0.75, line_color=country_color,
+                      line_dash=dash, legend_label=label, name=f"{country_name}_{metric_name}")
+
     # fixed attributes
     plot.xaxis.axis_label = None
-    plot.yaxis.axis_label = "Total Duties (USD)" if is_dollar_metric else "Tariff Rate (%)"
+    plot.yaxis.axis_label = "Tariff Rate (%)"
     plot.axis.axis_label_text_font_style = "bold"
     plot.axis.axis_label_text_font_size = "16pt"
     plot.grid.grid_line_alpha = 0.3
-    
-    if is_dollar_metric:
-        TIMETOOLTIPS = """
-                <div style="background-color:#F5F5F5; opacity: 0.95; border: 5px 5px 5px 5px;">
-                <div style = "text-align:left;">
-                <span style="font-size: 13px; font-weight: bold">
-                <img src="@flag" alt="" style="height:20px; vertical-align:middle; margin-right:8px;"> @country
-                 </span>
-                 </div>
-                 <div style = "text-align:left;">
-                <span style="font-size: 13px; font-weight: bold"> @x{%b %Y}:  @y{$0.0a}</span>   
-                </div>
-                </div>
-                """
-    else:
-        TIMETOOLTIPS = """
-                <div style="background-color:#F5F5F5; opacity: 0.95; border: 5px 5px 5px 5px;">
-                <div style = "text-align:left;">
-                <span style="font-size: 13px; font-weight: bold">
-                <img src="@flag" alt="" style="height:20px; vertical-align:middle; margin-right:8px;"> @country
-                 </span>
-                 </div>
-                 <div style = "text-align:left;">
-                <span style="font-size: 13px; font-weight: bold"> @x{%b %Y}:  @y{0.1f}%</span>   
-                </div>
-                </div>
-                """
-        
-    plot.add_tools(HoverTool(tooltips = TIMETOOLTIPS,  line_policy='nearest', formatters={'@x': 'datetime'}))
-    
+
+    TIMETOOLTIPS = """
+            <div style="background-color:#F5F5F5; opacity: 0.95; border: 5px 5px 5px 5px;">
+            <div style = "text-align:left;">
+            <span style="font-size: 13px; font-weight: bold">
+            <img src="@flag" alt="" style="height:20px; vertical-align:middle; margin-right:8px;"> @country
+             </span>
+             </div>
+             <div style = "text-align:left;">
+            <span style="font-size: 13px; font-weight: bold"> @metric | @x{%b %Y}:  @y{0.1f}%</span>   
+            </div>
+            </div>
+            """
+
+    plot.add_tools(HoverTool(tooltips=TIMETOOLTIPS, line_policy='nearest', formatters={'@x': 'datetime'}))
+
     # Configure legend
     plot.legend.location = "top_left"
     plot.legend.click_policy = "hide"  # Click to hide/show lines
     plot.legend.label_text_font_size = "10pt"
     plot.legend.spacing = 2
     plot.legend.padding = 5
-    
+
     plot.title.text_font_size = '13pt'
-    plot.background_fill_color = background 
+    plot.background_fill_color = background
     plot.background_fill_alpha = 0.75
-    plot.border_fill_color = background 
-    
-    trump2_box = BoxAnnotation(left=dt.datetime(2025,4,2), right=dt.datetime(final_year,final_month,1), fill_color='red', fill_alpha=0.1)
+    plot.border_fill_color = background
+
+    trump2_box = BoxAnnotation(left=dt.datetime(2025, 4, 2), right=dt.datetime(final_year, final_month, 1), fill_color='red', fill_alpha=0.1)
     plot.add_layout(trump2_box)
-    
+
     # Make tick labels bold and larger
     plot.xaxis.major_label_text_font_style = "bold"
     plot.xaxis.major_label_text_font_size = "12pt"
     plot.xaxis.major_label_orientation = 0.785  # 45 degrees in radians (pi/4)
     plot.yaxis.major_label_text_font_style = "bold"
     plot.yaxis.major_label_text_font_size = "12pt"
-    
-    plot.sizing_mode= "scale_both"
-    
-    # Format y-axis as dollars or percentages based on metric
-    if is_dollar_metric:
-        plot.yaxis.formatter = NumeralTickFormatter(format="($0.0a)")
-    else:
-        plot.yaxis.formatter = NumeralTickFormatter(format="(0.0)")
-    
+
+    plot.sizing_mode = "scale_both"
+    plot.yaxis.formatter = NumeralTickFormatter(format="(0.0)")
+
     plot.max_height = height
     plot.max_width = width
-    
     plot.min_height = int(0.25*height)
     plot.min_width = int(0.25*width)
-    
+
     return plot
 
 #################################################################################
 
 def download_csv():
-    """Generate CSV data for currently selected countries and metric"""
+    """Generate CSV data for currently selected countries and metrics"""
     metric_map = {
         'TRI Tariff': 'sqrtariff',
         'Weighted Mean Tariff': 'meanweighted',
         'Duty / Imports Tariff': 'simplemean',
         'Statutory Tariff': 'effective tariff',
-        'Total Duties': 'duty_total'
     }
-    
-    metric_column = metric_map[metric_select.value]
-    is_dollar_metric = (metric_select.value == 'Total Duties')
-    
-    # Collect data for all selected countries
+
+    # Collect data for all selected metrics and countries
     data_list = []
-    for country_name in country_select.value:
-        country_data = df.loc[country_name].sort_index()
-        for idx, row in country_data.iterrows():
-            value = row[metric_column]
-            # Skip rows where the metric value is NaN or missing
-            if pd.notna(value):
-                display_value = value if is_dollar_metric else value * 100
-                data_list.append({
-                    'Country': country_name,
-                    'Date': idx.strftime('%Y-%m-%d'),
-                    'Metric': metric_select.value,
-                    'Value': display_value
-                })
+    for metric_name in metric_select.value:
+        metric_column = metric_map[metric_name]
+        for country_name in country_select.value:
+            country_data = df.loc[country_name].sort_index()
+            for idx, row in country_data.iterrows():
+                value = row[metric_column]
+                # Skip rows where the metric value is NaN or missing
+                if pd.notna(value):
+                    data_list.append({
+                        'Country': country_name,
+                        'Date': idx.strftime('%Y-%m-%d'),
+                        'Metric': metric_name,
+                        'Value': value * 100
+                    })
     
     # Create DataFrame and export to CSV
     export_df = pd.DataFrame(data_list)
@@ -238,9 +223,16 @@ country_select.on_change('value', update_plot)
                         
 #################################################################################
 
-metric_select = Select(value=metric, title='Tariff Metric', options=['TRI Tariff', 'Weighted Mean Tariff', 'Duty / Imports Tariff', 
-                                                                     'Statutory Tariff', 'Total Duties'], width=350)
-metric_select.on_change('value', update_plot)
+metric_select = MultiChoice(value=metric, title='Tariff Metric (max 2)', options=['TRI Tariff', 'Weighted Mean Tariff', 'Duty / Imports Tariff',
+                                                                                    'Statutory Tariff'], width=350)
+
+def enforce_metric_limit(attrname, old, new):
+    if len(new) > 2:
+        metric_select.value = new[-2:]  # keep the two most recently added
+        return  # value change will re-trigger update_plot
+    layout.children[0] = make_plot()
+
+metric_select.on_change('value', enforce_metric_limit)
 
 #################################################################################
 
@@ -255,8 +247,8 @@ download_link_div = Div(text="", width=350, height=50)
 div0 = Div(text = """<b>TRI Tariff</b>: Trade Restrictiveness Index.<br>
     <b>Weighted Mean</b>: 2024 Import-weighted average tariff.<br>
     <b>Duty / Imports</b>: Total duties divided by total imports.<br>
-    <b>Statutory Tariff</b>: Announced tariffs, 2024 Import-weighted.<br>    
-    <b>Total Duties</b>: Total customs duties collected in USD.\n
+    <b>Statutory Tariff</b>: Announced tariffs, 2024 Import-weighted.<br>
+    Select one or more metrics to overlay. Multiple metrics shown as solid / dashed / dotted lines.\n
     """, width=350, background = background, styles={"justify-content": "space-between", "display": "flex"} )
 
 div1 = Div(text = """Select one or more countries to compare. Data covers top 20 U.S. trading partners plus ALL COUNTRIES aggregate.\n
